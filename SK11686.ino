@@ -1245,10 +1245,10 @@ void monitorCycleTest(void) {
         break;
 
       case 18:       //  check stroke count
-        if (StrokeCycleCount >= (myCycleTest.tot_strokes + 4)) {  //pause test for excessive cord slip
+        if (StrokeCycleCount >= (myCycleTest.tot_strokes + 6)) {  //pause test for excessive cord slip
           pauseCycleTest();
           Serial.println("TEST FAILED  :(");
-        } else if (StrokeCycleCount >= (myCycleTest.tot_strokes-1)) {  //Change the stroke factor to do little strokes by the top
+        } else if (StrokeCycleCount >= (myCycleTest.tot_strokes)) {  //Change the stroke factor to do little strokes by the top
 	        LittleStrokeFactor = 2;         //a value of 2 will cut the pull distance in half
           myCycleTest.index = 19;
         } 
