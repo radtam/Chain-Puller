@@ -1219,8 +1219,7 @@ void monitorCycleTest(void) {
         break;       
       case 14:       // wait for the motor to reach the bot position
         if (myStepperDrive.currentPosition() <= myDriveSettings.bot_position/LittleStrokeFactor) {
-          myCycleTest.index = 15;            
-          StrokeCycleCount +=1;   
+          myCycleTest.index = 15;              
           myCycleTest.move_time = (time_ms/1000);
           sTime = millis();
         }
@@ -1248,7 +1247,7 @@ void monitorCycleTest(void) {
         if (StrokeCycleCount >= (myCycleTest.tot_strokes + 6)) {  //pause test for excessive cord slip
           pauseCycleTest();
           Serial.println("TEST FAILED  :(");
-        } else if (StrokeCycleCount >= (myCycleTest.tot_strokes)) {  //Change the stroke factor to do little strokes by the top
+        } else if (StrokeCycleCount >= (myCycleTest.tot_strokes - 1)) {  //Change the stroke factor to do little strokes by the top
 	        LittleStrokeFactor = 2;         //a value of 2 will cut the pull distance in half
           myCycleTest.index = 19;
         } 
