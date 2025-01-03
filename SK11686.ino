@@ -1,4 +1,3 @@
-
 #include <AccelStepper.h>
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
@@ -162,7 +161,7 @@ const char* const myDISPLAY[] PROGMEM = { display0, display1, display2, display3
 #define INDEX_SERVO_P1_ANGLE  42 
 #define INDEX_SERVO_P2_ANGLE  43
 #define INDEX_SERVO_SETTINGS  44
-#define INDEX_TOT_CYCLES  45    
+#define INDEX_TOT_STROKES  45    
 #define INDEX_SERVO_P3_ANGLE  46
 
 #define MAX_MAIN_MENU   6     // Changed from 5 to 6 AP
@@ -232,7 +231,7 @@ struct CycleTester {
   int servo_p2_angle; // servo angle to lower shade
   int servo_p3_angle; // servo angle to raise shade
   byte chksum;
-  int tot_cycles = 8;  //Number strokes to open shade
+  int tot_strokes = 8;  //Number strokes to open shade
 };
 struct CycleTester myCycleTest;
 
@@ -279,7 +278,9 @@ LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 // Define a myStepperDrive and the pins it will use - using the DRIVER profile - a 2 wire interface
 AccelStepper myStepperDrive(1, STEP_PIN, DIR_PIN);
 
-int CordCycleCount = 0;
+
+int StrokeCycleCount = 0;
+int LittleStrokeFactor = 1; //2 would make it half a stroke
 uint32_t Time100ms;
 uint32_t Time1000ms;
 
@@ -311,7 +312,7 @@ void setup() {
   Time1000ms=millis();
 
   Serial.begin(57600);          // init serial
-  //String i = "Total Strokes = " + (String)tot_cycles;
+  //String i = "Total Strokes = " + (String)tot_strokes;
   //Serial.println(i);
 }
 
@@ -405,7 +406,7 @@ void init_myCycleTest(void) {
     myCycleTest.servo_p1_angle = 90;
     myCycleTest.servo_p2_angle = 145;
     myCycleTest.servo_p3_angle = 55;
-    myCycleTest.tot_cycles = 8;
+    myCycleTest.tot_strokes = 8;
     
   } 
 }
@@ -549,12 +550,12 @@ void updateEditVariables(void) {
       myEdit.xMultipler = 10;
       myEdit.cur_Value = myCycleTest.dwell_time;
       break;
-    case INDEX_TOT_CYCLES:
+    case INDEX_TOT_STROKES:
       myEdit.max_Value = 40;
       myEdit.min_Value = 0;
       myEdit.stepSize = 1;
       myEdit.xMultipler = 5;
-      myEdit.cur_Value = myCycleTest.tot_cycles;
+      myEdit.cur_Value = myCycleTest.tot_strokes;
       break;
     case INDEX_MOVE_TIMEOUT:
       myEdit.max_Value = 900;
@@ -658,8 +659,8 @@ void saveEdit(void) {
       saveCycleData();
       end_edit = true;
       break;
-    case INDEX_TOT_CYCLES:
-      myCycleTest.tot_cycles = myEdit.cur_Value;
+    case INDEX_TOT_STROKES:
+      myCycleTest.tot_strokes = myEdit.cur_Value;
       saveCycleData();
       end_edit = true;
       break;  
@@ -1024,8 +1025,8 @@ void updateDisp_SetupEdits(uint16_t theData) {
       lcd.setCursor(13,1); lcd.print("   ");
       lcd.setCursor(13,1); lcd.print(theData);
       break;
-    case INDEX_TOT_CYCLES:
-      if (theData == INVALID_DATA) theData = myCycleTest.tot_cycles;
+    case INDEX_TOT_STROKES:
+      if (theData == INVALID_DATA) theData = myCycleTest.tot_strokes;
       lcd.setCursor(13,1); lcd.print("   ");
       lcd.setCursor(13,1); lcd.print(theData);
       break;        
@@ -1180,13 +1181,13 @@ void monitorCycleTest(void) {
       case 9:       // wait for the motor to reach the top position
         if (myStepperDrive.currentPosition() == myDriveSettings.top_position) {
           myCycleTest.index = 10;
-          CordCycleCount +=1;   
+          StrokeCycleCount +=1;   
           myCycleTest.move_time = (time_ms/1000); 
         }
         break;
       case 10:       //  check stroke count
-        if (CordCycleCount >= (myCycleTest.tot_cycles)) {
-	        CordCycleCount = 0;
+        if (StrokeCycleCount >= (myCycleTest.tot_strokes)) {
+	        StrokeCycleCount = 0;
           myCycleTest.index = 11;
           updateCycleStatus();
           sTime = millis();
@@ -1197,7 +1198,6 @@ void monitorCycleTest(void) {
           }
         else myCycleTest.index = 1;
         break;
-
       case 11:     // Dwell timer
         if (time_ms >= (uint32_t(myCycleTest.dwell_time) * 1000)) {
           sTime = millis();
@@ -1206,56 +1206,63 @@ void monitorCycleTest(void) {
         }
         else updateDwellTimer(time_ms/1000);  // update the display with the dwell timer
         break;
+
       case 12:     // Engages servo to raise shade
         myservo.write(myCycleTest.servo_p3_angle);
         myCycleTest.index = 13;
         delay(250);
         break;   
       case 13:       // move to the bot position
-        moveTo(myDriveSettings.bot_position);
+        moveTo(myDriveSettings.bot_position/LittleStrokeFactor);   //LittleStrokeFactor is 1 until you want smaller strokes as you reach the break beam
         sTime = millis();
         myCycleTest.index = 14;
         break;       
       case 14:       // wait for the motor to reach the bot position
-        if (myStepperDrive.currentPosition() <= myDriveSettings.bot_position ) {
-          myCycleTest.index = 18;            
-          CordCycleCount +=1;   
+        if (myStepperDrive.currentPosition() <= myDriveSettings.bot_position/LittleStrokeFactor) {
+          myCycleTest.index = 15;            
+          StrokeCycleCount +=1;   
           myCycleTest.move_time = (time_ms/1000);
           sTime = millis();
         }
         break;
 
-      case 18:       // Disengages servo
+      case 15:       // Disengages servo
         myservo.write(myCycleTest.servo_p1_angle);
         delay(500);
-        myCycleTest.index = 19;
+        myCycleTest.index = 16;
         break;
-      case 19:      // Moves to top position
+      case 16:      // Moves to top position
         moveTo(myDriveSettings.top_position);
         sTime = millis();
-        myCycleTest.index = 20;
+        myCycleTest.index = 17;
         break;
-      case 20:       // wait for the motor to reach the top position
+      case 17:       // wait for the motor to reach the top position
         if (myStepperDrive.currentPosition() == myDriveSettings.top_position) {
-          myCycleTest.index = 21;
-          CordCycleCount +=1;  
+          myCycleTest.index = 18;
+          StrokeCycleCount +=1;  
           myCycleTest.move_time = (time_ms/1000); 
         }
         break;
-      case 21:      // Checks Cycle count
-        if (CordCycleCount >= (myCycleTest.tot_cycles * 4)) {  //pause test for excessive cord slip
+
+      case 18:       //  check stroke count
+        if (StrokeCycleCount >= (myCycleTest.tot_strokes + 4)) {  //pause test for excessive cord slip
           pauseCycleTest();
           Serial.println("TEST FAILED  :(");
+        } else if (StrokeCycleCount >= (myCycleTest.tot_strokes-1)) {  //Change the stroke factor to do little strokes by the top
+	        LittleStrokeFactor = 2;         //a value of 2 will cut the pull distance in half
+          myCycleTest.index = 19;
         } 
-	      else myCycleTest.index = 22;
+        else myCycleTest.index = 19;
         break;
-      case 22:     //Checks sensor, It will stop instead when hembar sensor reachs mag strip
+      
+      case 19:     //Checks sensor, It will stop instead when hembar sensor reachs mag strip
         if (digitalRead(0) == HIGH) //High to cheak if shade is up because the top break beam is open now
         {
-          myCycleTest.index = 9;
+          //myCycleTest.index = 9;
           delay(10);
-          CordCycleCount = 0;
-          myCycleTest.index = 23;
+          LittleStrokeFactor = 1;
+          StrokeCycleCount = 0;
+          myCycleTest.index = 20;
           myCycleTest.cycle_count += 1;
           updateCycleStatus();
           sTime = millis();
@@ -1272,9 +1279,7 @@ void monitorCycleTest(void) {
         }
         break;
         
-        
-        
-       case 23:       // wait for dwell time to expire, update the cycle count status on the display, then check if we reached the number of cycles, if not set index = 1 (starting a new cycle)
+       case 20:       // wait for dwell time to expire, update the cycle count status on the display, then check if we reached the number of cycles, if not set index = 1 (starting a new cycle)
         if (time_ms >= (uint32_t(myCycleTest.dwell_time) * 1000)) {
           sTime = millis();
           myCycleTest.index = 1;
