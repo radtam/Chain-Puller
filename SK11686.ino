@@ -76,7 +76,9 @@ const char display16[] PROGMEM = "Start Cycle     ";
 const char display17[] PROGMEM = "     of         ";
 const char display18[] PROGMEM = "Cycle Active    ";
 const char display19[] PROGMEM = "Cycle Complete  ";
+const char display47[] PROGMEM = "Set Multi Pull  ";
 const char display45[] PROGMEM = "# of Strokes:   ";
+const char display48[] PROGMEM = "Pull Factor:    ";
 //                     "0123456789012345"
 const char display20[] PROGMEM = "Cycle Paused    ";
 const char display21[] PROGMEM = "Reset Cycle Tst?";
@@ -163,9 +165,12 @@ const char* const myDISPLAY[] PROGMEM = { display0, display1, display2, display3
 #define INDEX_SERVO_SETTINGS  44
 #define INDEX_TOT_STROKES  45    
 #define INDEX_SERVO_P3_ANGLE  46
+#define INDEX_MULTI_STROKE  47
+#define INDEX_PULL_FACTOR  48 
 
 #define MAX_MAIN_MENU   6     // Changed from 5 to 6 AP
 #define MAX_SUB_MENU    5
+#define MAX_SUB_SUB_MENU 2
                                                  //MAIN MENU    STPR MENUs   CYCLE MENUs     MTR CTRL MENUs    Servo Menus   Limit MENUs 
 uint8_t menuLCD[MAX_MAIN_MENU][MAX_SUB_MENU] = { {1,2,3,5,44}, {6,7,8,0,0}, {13,15,29,34,45}, {27,28,39,16,0}, {42,43,46,0,0}, {10,11,12,0,0} };
 
