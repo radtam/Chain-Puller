@@ -22,15 +22,6 @@
 #define D11     11
 #define D12     12
 #define D13     13
-//*******************************************************
-//****      DEBUG / TESTING ONLY         ****
-//*******************************************************
-#define TEST_PIN      D0                        // use to confirm timing or debug - does not affect the application
-#define TEST_PIN_HIGH   digitalWrite(TEST_PIN,HIGH)
-#define TEST_PIN_LOW    digitalWrite(TEST_PIN,LOW)
-#define TEST_PIN_TOG    digitalWrite(TEST_PIN,!(digitalRead(TEST_PIN)))
-//*******************************************************
-#define SAFETY_STOP     digitalRead(D2)     //Disabled, this will return a 0 or 1 - switch N/C = set to 1 to be active in monitorCycleTest function - Added by AP
 
 Servo myservo;  // create servo object to control a servo - Added by AP
 bool servoPosition;
@@ -107,6 +98,7 @@ const char display42[] PROGMEM = "Servo P1 Angle  ";  // Neutral angle
 const char display43[] PROGMEM = "Servo P2 Angle  ";  // angle to lower shade
 const char display44[] PROGMEM = "Servo Settings  ";
 const char display46[] PROGMEM = "Servo P3 Angle  ";  // Added for twin pull; angle to raise shade
+const char display47[] PROGMEM = "Set Adj?        ";  // the position for correction
 
 const char* const myDISPLAY[] PROGMEM = { display0, display1, display2, display3, display4, display5,
                       display6, display7, display8, display9, display10, display11,
@@ -115,7 +107,7 @@ const char* const myDISPLAY[] PROGMEM = { display0, display1, display2, display3
                       display24, display25, display26, display27, display28, display29,
                       display30, display31, display32, display33, display34, display35,
                       display36, display37, display38, display39, display40, display41,
-                      display42, display43, display44, display45, display46};
+                      display42, display43, display44, display45, display46, display47};
 
 #define INDEX_PROG_VER    0
 #define INDEX_MENU      1
@@ -164,11 +156,12 @@ const char* const myDISPLAY[] PROGMEM = { display0, display1, display2, display3
 #define INDEX_SERVO_SETTINGS  44
 #define INDEX_TOT_CYCLES  45    
 #define INDEX_SERVO_P3_ANGLE  46
+#define INDEX_SET_CORRECTION 47
 
 #define MAX_MAIN_MENU   6     // Changed from 5 to 6 AP
 #define MAX_SUB_MENU    5
                                                  //MAIN MENU    STPR MENUs   CYCLE MENUs     MTR CTRL MENUs    Servo Menus   Limit MENUs 
-uint8_t menuLCD[MAX_MAIN_MENU][MAX_SUB_MENU] = { {1,2,3,5,44}, {6,7,8,0,0}, {13,15,29,34,45}, {27,28,39,16,0}, {42,43,46,0,0}, {10,11,12,0,0} };
+uint8_t menuLCD[MAX_MAIN_MENU][MAX_SUB_MENU] = { {1,2,3,5,44}, {6,7,8,0,0}, {13,15,29,34,45}, {27,47,28,39,16}, {42,43,46,0,0}, {0,0,0,0,0} };
 
 #define BUFFER_SIZE   20
 char dispBuffer[BUFFER_SIZE];   // dispBuffer will be used to pull the strings out of program memory and placed in RAM...
@@ -249,6 +242,7 @@ struct myStepperDriveSettings {
   uint32_t acceleration;    // this will be used to set the acceleration of the drive in terms of steps per sec
   uint32_t steps_per_rev;   // this is the number of steps per rev that the drive is set to
   int32_t top_position;   // currently, the top position is always defined as being 0... but this could change in the future if we need to...
+  int32_t adj_position;   // adjustment for correcting the shades position.
   int32_t bot_position;   // this will store the bottom position step count for the cycle test.
   uint8_t chksum;       // checksum for the stored data - this will be used to validate the data that we read.
 };
@@ -280,6 +274,7 @@ LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 AccelStepper myStepperDrive(1, STEP_PIN, DIR_PIN);
 
 int CordCycleCount = 0;
+int AdjustmentTryCount = 0;
 uint32_t Time100ms;
 uint32_t Time1000ms;
 
@@ -292,9 +287,7 @@ void setup() {
   servoPosition = false;
 
 
-  pinMode(TEST_PIN,OUTPUT);
-  TEST_PIN_LOW;
- 
+  
   
   lcd.begin(16, 2);           // start the LCD library for a 16x2 display
   
@@ -343,7 +336,6 @@ void loop() {
     if ((currentTime-Time1000ms) >= 1000) {        // ***** 1000 msec loop *****
       Time1000ms = currentTime;
       if (myLCD.row1_index == INDEX_CYCLE_ACTIVE) myCycleTest.total_test_time += 1;
-      TEST_PIN_TOG;
     }
  }
   
@@ -359,6 +351,7 @@ void init_drive_settings(void) {
     myDriveSettings.max_speed = MAX_SPEED_DEF;
     myDriveSettings.steps_per_rev = STEPS_PER_REV_DEF;
     myDriveSettings.top_position = 0;
+    myDriveSettings.adj_position = STEPS_PER_REV_DEF;
     myDriveSettings.bot_position = STEPS_PER_REV_DEF * 5; 
     myDriveSettings.chksum = EE_CHKSUM_VALID; 
   } 
@@ -884,6 +877,9 @@ void move_menu(void) {
     case btnUP:
       switch (menuLCD[myLCD.top_menu_index][myLCD.sub_menu_index]) {
         case INDEX_SET_TOP:
+        case INDEX_SET_CORRECTION:
+          bump(DIR_UP);
+          break;
         case INDEX_SET_BOTTOM:
           bump(DIR_UP);
           break;
@@ -895,6 +891,9 @@ void move_menu(void) {
     case btnDOWN:
       switch (menuLCD[myLCD.top_menu_index][myLCD.sub_menu_index]) {
         case INDEX_SET_TOP:
+        case INDEX_SET_CORRECTION:
+          bump(DIR_DOWN);
+          break;
         case INDEX_SET_BOTTOM:
           bump(DIR_DOWN);
           break;
@@ -907,7 +906,13 @@ void move_menu(void) {
       switch (menuLCD[myLCD.top_menu_index][myLCD.sub_menu_index]) {
         case INDEX_SET_TOP:
           myStepperDrive.setCurrentPosition(0);
-          myLCD.sub_menu_index += 1;                    // automatically move to SET BOT...
+          myLCD.sub_menu_index += 1;                    // automatically move to SET Adj...
+          updateDisplay(1,menuLCD[myLCD.top_menu_index][myLCD.sub_menu_index]);
+          break;
+        case INDEX_SET_CORRECTION:
+          myDriveSettings.adj_position = myStepperDrive.currentPosition();
+          saveStepperDriveSettings();
+          myLCD.sub_menu_index += 1;                    // automatically move to next option... SET BOT
           updateDisplay(1,menuLCD[myLCD.top_menu_index][myLCD.sub_menu_index]);
           break;
         case INDEX_SET_BOTTOM:
@@ -1133,6 +1138,7 @@ void updateCycleStatus(void) {
   lcd.setCursor(8,1); lcd.print(myCycleTest.num_cycles);
   lcd.setCursor(14,1); lcd.print("  ");
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 void monitorCycleTest(void) {
   // this function will be called 10 times per second...
@@ -1149,53 +1155,72 @@ void monitorCycleTest(void) {
     if (myLCD.row1_index == INDEX_CYCLE_ACTIVE) {
     switch (myCycleTest.index) {
       case 0:       // wait for start of cycle - this case should not happen but just in case...
-      case 1:       // Engages servo to move shade downward
+
+      case 1:   // Engages servo to move shade downward
         myservo.write(myCycleTest.servo_p2_angle);
         myCycleTest.index = 2;
-        delay(250);
-        break;
-      case 2:       // moves motor to bot positon
+        delay(250); 
+        break;   
+      case 2:
         moveTo(myDriveSettings.bot_position);
+        AdjustmentTryCount = 0;
         sTime = millis();
         myCycleTest.index = 3;
-        break;       
+        break;   
       case 3:       // wait for the motor to reach the bot position
         if (myStepperDrive.currentPosition() == myDriveSettings.bot_position ) {
-          myCycleTest.index = 7;          
+          myCycleTest.index = 4;          
           myCycleTest.move_time = (time_ms/1000);
           sTime = millis();
         }
         break;
-        
-      case 7:       // Disengages servo
+      case 4:       // Disengages servo
         myservo.write(myCycleTest.servo_p1_angle);
         delay(500);
-        myCycleTest.index = 8;
+        myCycleTest.index = 5;
         break;
-      case 8:     // Move motor back to top position
+      case 5:     // Move motor back to top position
         moveTo(myDriveSettings.top_position);
         sTime = millis();
-        myCycleTest.index = 9;
+        myCycleTest.index = 6;
         break;
-      case 9:       // wait for the motor to reach the top position
+      case 6:       // wait for the motor to reach the top position
         if (myStepperDrive.currentPosition() == myDriveSettings.top_position) {
-          myCycleTest.index = 10;
-          CordCycleCount +=1;   
+          myCycleTest.index = 7;
           myCycleTest.move_time = (time_ms/1000); 
+          sTime = millis();
         }
         break;
-      case 10:       //  check stroke count
-        if (CordCycleCount >= (myCycleTest.tot_cycles)) {
-	        CordCycleCount = 0;
+
+      case 7: 
+        if (isDown()) {
           myCycleTest.index = 11;
-          updateCycleStatus();
+        } else if (isPartial()){
+          myCycleTest.index = 8;
+        } else {
+          pauseCycleTest();
+          myCycleTest.index = 1;
+        }
+        break;
+      case 8:
+        if (AdjustmentTryCount == 0){
+          myservo.write(myCycleTest.servo_p2_angle);
+          delay(250); 
+          moveTo(myDriveSettings.adj_position);
+          AdjustmentTryCount +=1;
           sTime = millis();
-          if (myCycleTest.cycle_count == myCycleTest.num_cycles) {
-            updateDisplay(0,INDEX_CYCLE_COMPLETE);
-          }
-           saveCycleData();
-          }
-        else myCycleTest.index = 1;
+          myCycleTest.index = 9;
+        } else {
+          pauseCycleTest();
+          myCycleTest.index = 11;
+        }
+        break;   
+      case 9:       // wait for the motor to reach the bot position
+        if (myStepperDrive.currentPosition() == myDriveSettings.adj_position ) {
+          myCycleTest.index = 4;          
+          myCycleTest.move_time = (time_ms/1000);
+          sTime = millis();
+        }
         break;
 
       case 11:     // Dwell timer
@@ -1206,6 +1231,7 @@ void monitorCycleTest(void) {
         }
         else updateDwellTimer(time_ms/1000);  // update the display with the dwell timer
         break;
+
       case 12:     // Engages servo to raise shade
         myservo.write(myCycleTest.servo_p3_angle);
         myCycleTest.index = 13;
@@ -1213,13 +1239,13 @@ void monitorCycleTest(void) {
         break;   
       case 13:       // move to the bot position
         moveTo(myDriveSettings.bot_position);
+        AdjustmentTryCount = 0;
         sTime = millis();
         myCycleTest.index = 14;
         break;       
       case 14:       // wait for the motor to reach the bot position
-        if (myStepperDrive.currentPosition() <= myDriveSettings.bot_position ) {
-          myCycleTest.index = 18;            
-          CordCycleCount +=1;   
+        if (myStepperDrive.currentPosition() == myDriveSettings.bot_position ) {
+          myCycleTest.index = 18;              
           myCycleTest.move_time = (time_ms/1000);
           sTime = millis();
         }
@@ -1238,43 +1264,57 @@ void monitorCycleTest(void) {
       case 20:       // wait for the motor to reach the top position
         if (myStepperDrive.currentPosition() == myDriveSettings.top_position) {
           myCycleTest.index = 21;
-          CordCycleCount +=1;  
           myCycleTest.move_time = (time_ms/1000); 
         }
         break;
-      case 21:      // Checks Cycle count
-        if (CordCycleCount >= (myCycleTest.tot_cycles * 4)) {  //pause test for excessive cord slip
+      
+      case 21: 
+        if (isUp()) {
+          myCycleTest.index = 24;
+        } else if (isPartial()){
+          myCycleTest.index = 22;
+        } else {
           pauseCycleTest();
-          Serial.println("TEST FAILED  :(");
-        } 
-	      else myCycleTest.index = 22;
-        break;
-      case 22:     //Checks sensor, It will stop instead when hembar sensor reachs mag strip
-        if (digitalRead(0) == HIGH) //High to cheak if shade is up because the top break beam is open now
-        {
-          myCycleTest.index = 9;
-          delay(10);
-          CordCycleCount = 0;
-          myCycleTest.index = 23;
-          myCycleTest.cycle_count += 1;
-          updateCycleStatus();
-          sTime = millis();
-           if (myCycleTest.cycle_count == myCycleTest.num_cycles) {
-             updateDisplay(0,INDEX_CYCLE_COMPLETE);
-             myservo.write(myCycleTest.servo_p1_angle);
-           }
-           saveCycleData();
-        }
-        else 
-        {
           myCycleTest.index = 12;
-          delay(10);
         }
         break;
+      case 22:
+        if (AdjustmentTryCount == 0){
+          myservo.write(myCycleTest.servo_p3_angle);
+          delay(250); 
+          moveTo(myDriveSettings.adj_position);
+          AdjustmentTryCount +=1;
+          sTime = millis();
+          myCycleTest.index = 23;
+        } else {
+          pauseCycleTest();
+          myCycleTest.index = 24;
+        }
+        break;   
+      case 23:       // wait for the motor to reach the Adjustment position
+        if (myStepperDrive.currentPosition() == myDriveSettings.adj_position ) {
+          myCycleTest.index = 18;          
+          myCycleTest.move_time = (time_ms/1000);
+          sTime = millis();
+        }
+        break;
+
+
+      case 24: 
+        myCycleTest.index = 25;
+        myCycleTest.move_time = (time_ms/1000);
+        myCycleTest.cycle_count += 1;
+        updateCycleStatus();
+        sTime = millis();
+        if (myCycleTest.cycle_count == myCycleTest.num_cycles) {
+            updateDisplay(0,INDEX_CYCLE_COMPLETE);
+            myservo.write(myCycleTest.servo_p1_angle);
+         }
+        saveCycleData();
+        break;
+      
         
-        
-        
-       case 23:       // wait for dwell time to expire, update the cycle count status on the display, then check if we reached the number of cycles, if not set index = 1 (starting a new cycle)
+       case 25:       // wait for dwell time to expire, update the cycle count status on the display, then check if we reached the number of cycles, if not set index = 1 (starting a new cycle)
         if (time_ms >= (uint32_t(myCycleTest.dwell_time) * 1000)) {
           sTime = millis();
           myCycleTest.index = 1;
@@ -1388,4 +1428,42 @@ void parseMOVE() {
   tmpPos = (int32_t) inStr.substring(4).toInt();
   move(tmpPos);
   Serial.print("Incrementing: "); Serial.println(tmpPos);
+}
+
+bool isUp() {
+  int topSensorValue = analogRead(A2);
+  int botSensorValue = analogRead(A3);
+  Serial.print("Top: ");
+  Serial.println(topSensorValue);
+  Serial.print("Bot: ");
+  Serial.println(botSensorValue);
+  return (topSensorValue > 50  && botSensorValue > 50);  // if both beams are open, the shade is up return true 
+}
+
+bool isPartial() {
+  int topSensorValue = analogRead(A2);
+  int botSensorValue = analogRead(A3);
+  Serial.print("Top: ");
+  Serial.println(topSensorValue);
+  Serial.print("Bot: ");
+  Serial.println(botSensorValue);
+  if(topSensorValue == LOW && botSensorValue == HIGH) {
+    Serial.println("Partial");
+    Serial.println("Top Broken, Bottom Open");
+  } else if (topSensorValue == HIGH && botSensorValue == LOW) {
+    Serial.println("Partial");
+    Serial.println("Top Open, Bottom Broken");
+  } else if (topSensorValue == LOW && botSensorValue == LOW) {
+    Serial.println("Top Broken, Bottom Broken");
+  }
+}
+
+bool isDown() {
+  int topSensorValue = analogRead(A2);
+  int botSensorValue = analogRead(A3);
+  Serial.print("Top: ");
+  Serial.println(topSensorValue);
+  Serial.print("Bot: ");
+  Serial.println(botSensorValue);
+  return (topSensorValue < 50 && botSensorValue < 50);  // if both beams are closed, the shade is down return true
 }
