@@ -1158,8 +1158,8 @@ void monitorCycleTest(void) {
       case 1:   // Engages servo to move shade downward
         myservo.write(myCycleTest.servo_p2_angle);
         myCycleTest.index = 2;
-        delay(250); 
-        break;   
+        delay(250);
+        break;
       case 2:
         moveTo(myDriveSettings.bot_position);
         AdjustmentTryCount = 0;
@@ -1185,10 +1185,25 @@ void monitorCycleTest(void) {
         break;
       case 6:       // wait for the motor to reach the top position
         if (myStepperDrive.currentPosition() == myDriveSettings.top_position) {
-          myCycleTest.index = 7;
+          myCycleTest.index = 65;
+          CordCycleCount +=1;
           myCycleTest.move_time = (time_ms/1000); 
           sTime = millis();
         }
+        break;
+
+      case 65:      //check stroke count, 65 because 6.5 can't be done
+        if (CordCycleCount >= (myCycleTest.tot_cycles)) {
+	        CordCycleCount = 0;
+          myCycleTest.index = 7;
+          updateCycleStatus();
+          sTime = millis();
+          if (myCycleTest.cycle_count == myCycleTest.num_cycles) {
+            updateDisplay(0,INDEX_CYCLE_COMPLETE);
+          }
+           saveCycleData();
+          }
+        else myCycleTest.index = 1;
         break;
 
       case 7: 
@@ -1245,7 +1260,8 @@ void monitorCycleTest(void) {
         break;       
       case 14:       // wait for the motor to reach the bot position
         if (myStepperDrive.currentPosition() == myDriveSettings.bot_position ) {
-          myCycleTest.index = 18;              
+          myCycleTest.index = 18;
+          //CordCycleCount +=1;     //Don't know if this is needed
           myCycleTest.move_time = (time_ms/1000);
           sTime = millis();
         }
@@ -1263,11 +1279,26 @@ void monitorCycleTest(void) {
         break;
       case 20:       // wait for the motor to reach the top position
         if (myStepperDrive.currentPosition() == myDriveSettings.top_position) {
-          myCycleTest.index = 21;
+          myCycleTest.index = 205;
+          CordCycleCount +=1; 
           myCycleTest.move_time = (time_ms/1000); 
         }
         break;
-      
+
+      case 205:      //check stroke count, 205 because 20.5 can't be done
+        if (CordCycleCount >= (myCycleTest.tot_cycles)) {
+	        CordCycleCount = 0;
+          myCycleTest.index = 21;
+          updateCycleStatus();
+          sTime = millis();
+          if (myCycleTest.cycle_count == myCycleTest.num_cycles) {
+            updateDisplay(0,INDEX_CYCLE_COMPLETE);
+          }
+           saveCycleData();
+          }
+        else myCycleTest.index = 12;
+        break;
+
       case 21: 
         delay(1000);
         if (isUp()) {
