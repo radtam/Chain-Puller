@@ -1193,7 +1193,7 @@ void monitorCycleTest(void) {
         break;
 
       case 65:      //check stroke count, 65 because 6.5 can't be done
-        if (CordCycleCount >= (myCycleTest.tot_cycles)) {
+        if (CordCycleCount >= (myCycleTest.tot_cycles) || AdjustmentTryCount > 0) {
 	        CordCycleCount = 0;
           myCycleTest.index = 7;
           updateCycleStatus();
@@ -1286,7 +1286,7 @@ void monitorCycleTest(void) {
         break;
 
       case 205:      //check stroke count, 205 because 20.5 can't be done
-        if (CordCycleCount >= (myCycleTest.tot_cycles)) {
+        if (CordCycleCount >= (myCycleTest.tot_cycles)|| AdjustmentTryCount > 0) {
 	        CordCycleCount = 0;
           myCycleTest.index = 21;
           updateCycleStatus();
