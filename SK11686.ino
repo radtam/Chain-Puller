@@ -1469,7 +1469,7 @@ bool isUp() {
   Serial.println(topSensorValue);
   Serial.print("Bot: ");
   Serial.println(botSensorValue);
-  return (topSensorValue > 50  && botSensorValue > 50);  // if both beams are open, the shade is up return true 
+  return (topSensorValue > 25  && botSensorValue > 25);  // if both beams are open, the shade is up return true 
 }
 
 bool isPartial() {
@@ -1497,5 +1497,5 @@ bool isDown() {
   Serial.println(topSensorValue);
   Serial.print("Bot: ");
   Serial.println(botSensorValue);
-  return (topSensorValue < 50 && botSensorValue < 50);  // if both beams are closed, the shade is down return true
+  return (topSensorValue < 25 && botSensorValue < 25);  // if both beams are closed, the shade is down return true
 }
