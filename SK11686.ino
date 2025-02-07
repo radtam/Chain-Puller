@@ -1,4 +1,3 @@
-
 #include <AccelStepper.h>
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
@@ -22,15 +21,7 @@
 #define D11     11
 #define D12     12
 #define D13     13
-//*******************************************************
-//****      DEBUG / TESTING ONLY         ****
-//*******************************************************
-#define TEST_PIN      D0                        // use to confirm timing or debug - does not affect the application
-#define TEST_PIN_HIGH   digitalWrite(TEST_PIN,HIGH)
-#define TEST_PIN_LOW    digitalWrite(TEST_PIN,LOW)
-#define TEST_PIN_TOG    digitalWrite(TEST_PIN,!(digitalRead(TEST_PIN)))
-//*******************************************************
-#define SAFETY_STOP     digitalRead(D2)     //Disabled, this will return a 0 or 1 - switch N/C = set to 1 to be active in monitorCycleTest function - Added by AP
+
 
 Servo myservo;  // create servo object to control a servo - Added by AP
 bool servoPosition;
