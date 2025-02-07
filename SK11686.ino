@@ -1,4 +1,3 @@
-
 #include <AccelStepper.h>
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
@@ -1193,6 +1192,7 @@ void monitorCycleTest(void) {
         break;
 
       case 7: 
+        delay(1000);
         if (isDown()) {
           myCycleTest.index = 11;
         } else if (isPartial()){
@@ -1269,6 +1269,7 @@ void monitorCycleTest(void) {
         break;
       
       case 21: 
+        delay(1000);
         if (isUp()) {
           myCycleTest.index = 24;
         } else if (isPartial()){
