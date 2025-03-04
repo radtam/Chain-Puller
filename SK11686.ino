@@ -282,9 +282,6 @@ void setup() {
   myservo.attach(3);  // attaches the servo on pin 0 to the servo object
   servoPosition = false;
 
-
-  pinMode(TEST_PIN,OUTPUT);
-  TEST_PIN_LOW;
  
   
   lcd.begin(16, 2);           // start the LCD library for a 16x2 display
@@ -334,7 +331,7 @@ void loop() {
     if ((currentTime-Time1000ms) >= 1000) {        // ***** 1000 msec loop *****
       Time1000ms = currentTime;
       if (myLCD.row1_index == INDEX_CYCLE_ACTIVE) myCycleTest.total_test_time += 1;
-      TEST_PIN_TOG;
+    
     }
  }
   
